@@ -16,19 +16,8 @@
 
 package org.springframework.beans.factory.support;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.BeanCreationNotAllowedException;
 import org.springframework.beans.factory.BeanCurrentlyInCreationException;
@@ -38,6 +27,16 @@ import org.springframework.beans.factory.config.SingletonBeanRegistry;
 import org.springframework.core.SimpleAliasRegistry;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Generic registry for shared bean instances, implementing the
@@ -83,12 +82,24 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	/** Cache of singleton objects: bean name --> bean instance */
+	// 存放的是单例 bean 的映射。
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<String, Object>(256);
 
 	/** Cache of singleton factories: bean name --> ObjectFactory */
+	/**
+	 * 存放的是 ObjectFactory 的映射，可以理解为创建单例 bean 的 factory 。
+	 *
+	 * 对应关系是 bean name --> ObjectFactory
+	 */
 	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<String, ObjectFactory<?>>(16);
 
 	/** Cache of early singleton objects: bean name --> bean instance */
+	/**
+	 * 存放的是【早期】的单例 bean 的映射。
+	 * 它与 {@link #singletonObjects} 的区别区别在，于 earlySingletonObjects 中存放的 bean 不一定是完整的。
+	 * 所以当在 bean 的创建过程中就可以通过 getBean() 方法获取。
+	 * 这个 Map 也是解决【循环依赖】的关键所在。
+	 */
 	private final Map<String, Object> earlySingletonObjects = new HashMap<String, Object>(16);
 
 	/** Set of registered singletons, containing the bean names in registration order */
@@ -182,13 +193,20 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @return the registered singleton object, or {@code null} if none found
 	 */
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		// 从缓存中获取bean
 		Object singletonObject = this.singletonObjects.get(beanName);
+		// 缓存中没有 并且该bean正在创建中
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			// 加锁
 			synchronized (this.singletonObjects) {
+				// 从earlySingletonObjects获取bean
 				singletonObject = this.earlySingletonObjects.get(beanName);
+				// earlySingletonObjects没有 且运行提前创建
 				if (singletonObject == null && allowEarlyReference) {
+					// 从singletonFactories获取ObjectFactory
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
+						// 获得 bean
 						singletonObject = singletonFactory.getObject();
 						this.earlySingletonObjects.put(beanName, singletonObject);
 						this.singletonFactories.remove(beanName);
@@ -215,7 +233,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (this.singletonsCurrentlyInDestruction) {
 					throw new BeanCreationNotAllowedException(beanName,
 							"Singleton bean creation not allowed while singletons of this factory are in destruction " +
-							"(Do not request a bean from a BeanFactory in a destroy method implementation!)");
+									"(Do not request a bean from a BeanFactory in a destroy method implementation!)");
 				}
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
