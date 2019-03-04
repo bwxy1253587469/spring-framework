@@ -16,22 +16,6 @@
 
 package org.springframework.beans.factory.support;
 
-import java.beans.ConstructorProperties;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Member;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.springframework.beans.BeanMetadataElement;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
@@ -54,6 +38,22 @@ import org.springframework.util.MethodInvoker;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.beans.ConstructorProperties;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Delegate for resolving constructors and factory methods.
@@ -86,6 +86,7 @@ class ConstructorResolver {
 
 
 	/**
+	 * 2. 构造函数自动注入初始化bean
 	 * "autowire constructor" (with constructor arguments by type) behavior.
 	 * Also applied if explicit constructor argument values are specified,
 	 * matching all remaining arguments with beans from the bean factory.
@@ -339,6 +340,7 @@ class ConstructorResolver {
 	}
 
 	/**
+	 * 1. 通过工厂方法初始化bean
 	 * Instantiate the bean using a named factory method. The method may be static, if the
 	 * bean definition parameter specifies a class, rather than a "factory-bean", or
 	 * an instance variable on a factory object itself configured using Dependency Injection.

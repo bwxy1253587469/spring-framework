@@ -16,19 +16,19 @@
 
 package org.springframework.beans.factory.support;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
-
 import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
 
 /**
  * Simple object instantiation strategy for use in a BeanFactory.
@@ -58,6 +58,7 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 	@Override
 	public Object instantiate(RootBeanDefinition bd, String beanName, BeanFactory owner) {
 		// Don't override the class with CGLIB if no overrides.
+		// 是否有method overrides 没有就用JDK代理
 		if (bd.getMethodOverrides().isEmpty()) {
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
@@ -104,10 +105,14 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 		throw new UnsupportedOperationException("Method Injection not supported in SimpleInstantiationStrategy");
 	}
 
+	/**
+	 * 通过构造方法创建bean
+	 */
 	@Override
 	public Object instantiate(RootBeanDefinition bd, String beanName, BeanFactory owner,
 			final Constructor<?> ctor, Object... args) {
 
+		// 没有覆盖，直接使用JDK反射实例化即可
 		if (bd.getMethodOverrides().isEmpty()) {
 			if (System.getSecurityManager() != null) {
 				// use own privileged to change accessibility (when security is on)
@@ -119,9 +124,11 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				});
 			}
+			// 通过工具类 JDK反射 JDK代理
 			return BeanUtils.instantiateClass(ctor, args);
 		}
 		else {
+			// 通过cglib创建bean  cglib代理
 			return instantiateWithMethodInjection(bd, beanName, owner, ctor, args);
 		}
 	}
@@ -138,6 +145,9 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 		throw new UnsupportedOperationException("Method Injection not supported in SimpleInstantiationStrategy");
 	}
 
+	/**
+	 * 通过给定的工厂方法创建bean
+	 */
 	@Override
 	public Object instantiate(RootBeanDefinition bd, String beanName, BeanFactory owner,
 			Object factoryBean, final Method factoryMethod, Object... args) {
@@ -159,6 +169,7 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 			Method priorInvokedFactoryMethod = currentlyInvokedFactoryMethod.get();
 			try {
 				currentlyInvokedFactoryMethod.set(factoryMethod);
+				// 通过Java反射创建bean
 				return factoryMethod.invoke(factoryBean, args);
 			}
 			finally {
