@@ -16,16 +16,15 @@
 
 package org.springframework.web.servlet.handler;
 
-import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.core.Ordered;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.ModelAndView;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.Set;
 
 /**
  * Abstract base class for {@link HandlerExceptionResolver} implementations.
@@ -127,9 +126,13 @@ public abstract class AbstractHandlerExceptionResolver implements HandlerExcepti
 	public ModelAndView resolveException(
 			HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
 
+		// 判断是否可以应用
 		if (shouldApplyTo(request, handler)) {
+			// 阻止缓存
 			prepareResponse(ex, response);
+			// 执行解析异常，返回 ModelAndView 对象
 			ModelAndView result = doResolveException(request, response, handler, ex);
+			// 如果 ModelAndView 对象非空，则进行返回
 			if (result != null) {
 				// Print warn message when warn logger is not enabled...
 				if (logger.isDebugEnabled() && (this.warnLogger == null || !this.warnLogger.isWarnEnabled())) {
@@ -141,6 +144,7 @@ public abstract class AbstractHandlerExceptionResolver implements HandlerExcepti
 			return result;
 		}
 		else {
+			// 不可应用，直接返回 null
 			return null;
 		}
 	}
@@ -160,9 +164,11 @@ public abstract class AbstractHandlerExceptionResolver implements HandlerExcepti
 	 */
 	protected boolean shouldApplyTo(HttpServletRequest request, Object handler) {
 		if (handler != null) {
+			// <1> 如果 mappedHandlers 包含 handler 对象，则返回 true
 			if (this.mappedHandlers != null && this.mappedHandlers.contains(handler)) {
 				return true;
 			}
+			// <2> 如果 mappedHandlerClasses 包含 handler 的类型，则返回 true
 			if (this.mappedHandlerClasses != null) {
 				for (Class<?> handlerClass : this.mappedHandlerClasses) {
 					if (handlerClass.isInstance(handler)) {
@@ -171,6 +177,7 @@ public abstract class AbstractHandlerExceptionResolver implements HandlerExcepti
 				}
 			}
 		}
+		// 如果 mappedHandlers 和 mappedHandlerClasses 都为空，说明直接匹配
 		// Else only apply if there are no explicit handler mappings.
 		return (this.mappedHandlers == null && this.mappedHandlerClasses == null);
 	}

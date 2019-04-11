@@ -16,6 +16,13 @@
 
 package org.springframework.web.method.annotation;
 
+import org.springframework.core.ExceptionDepthComparator;
+import org.springframework.core.MethodIntrospector;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ReflectionUtils.MethodFilter;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,13 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.core.ExceptionDepthComparator;
-import org.springframework.core.MethodIntrospector;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ReflectionUtils.MethodFilter;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 
 /**
  * Discovers {@linkplain ExceptionHandler @ExceptionHandler} methods in a given class,
@@ -70,8 +70,11 @@ public class ExceptionHandlerMethodResolver {
 	 * @param handlerType the type to introspect
 	 */
 	public ExceptionHandlerMethodResolver(Class<?> handlerType) {
+		// <1> 遍历 @ExceptionHandler 注解的方法
 		for (Method method : MethodIntrospector.selectMethods(handlerType, EXCEPTION_HANDLER_METHODS)) {
+			// <2> 遍历处理的异常集合 要捕获的异常
 			for (Class<? extends Throwable> exceptionType : detectExceptionMappings(method)) {
+				// <3> 添加到 mappedMethods 中
 				addExceptionMapping(exceptionType, method);
 			}
 		}
@@ -85,7 +88,9 @@ public class ExceptionHandlerMethodResolver {
 	@SuppressWarnings("unchecked")
 	private List<Class<? extends Throwable>> detectExceptionMappings(Method method) {
 		List<Class<? extends Throwable>> result = new ArrayList<Class<? extends Throwable>>();
+		// 首先，从方法上的 @ExceptionHandler 注解中，获得所处理的异常，添加到 result 中
 		detectAnnotationExceptionMappings(method, result);
+		// 其次，如果获取不到，从方法参数中，获得所处理的异常，添加到 result 中
 		if (result.isEmpty()) {
 			for (Class<?> paramType : method.getParameterTypes()) {
 				if (Throwable.class.isAssignableFrom(paramType)) {
@@ -93,6 +98,7 @@ public class ExceptionHandlerMethodResolver {
 				}
 			}
 		}
+		// 如果获取不到，则抛出 IllegalStateException 异常
 		if (result.isEmpty()) {
 			throw new IllegalStateException("No exception types mapped to " + method);
 		}
@@ -105,6 +111,7 @@ public class ExceptionHandlerMethodResolver {
 	}
 
 	private void addExceptionMapping(Class<? extends Throwable> exceptionType, Method method) {
+		// 要捕获的异常 和异常对应的处理方法
 		Method oldMethod = this.mappedMethods.put(exceptionType, method);
 		if (oldMethod != null && !oldMethod.equals(method)) {
 			throw new IllegalStateException("Ambiguous @ExceptionHandler method mapped for [" +
@@ -126,6 +133,7 @@ public class ExceptionHandlerMethodResolver {
 	 * @return a Method to handle the exception, or {@code null} if none found
 	 */
 	public Method resolveMethod(Exception exception) {
+		// 通过异常类型找到 处理的方法
 		Method method = resolveMethodByExceptionType(exception.getClass());
 		if (method == null) {
 			Throwable cause = exception.getCause();
@@ -143,7 +151,9 @@ public class ExceptionHandlerMethodResolver {
 	 * @return a Method to handle the exception, or {@code null} if none found
 	 */
 	public Method resolveMethodByExceptionType(Class<? extends Throwable> exceptionType) {
+		// 首先，先从 exceptionLookupCache 缓存中获得
 		Method method = this.exceptionLookupCache.get(exceptionType);
+		// 其次，获取不到，则从 mappedMethods 中获得，并添加到 exceptionLookupCache 中
 		if (method == null) {
 			method = getMappedMethod(exceptionType);
 			this.exceptionLookupCache.put(exceptionType, (method != null ? method : NO_METHOD_FOUND));
