@@ -484,13 +484,21 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>May be overridden in subclasses in order to initialize further strategy objects.
 	 */
 	protected void initStrategies(ApplicationContext context) {
+		// 初始化文件上传
 		initMultipartResolver(context);
+		// 语言环境 国际化
 		initLocaleResolver(context);
+		// 主体
 		initThemeResolver(context);
+		// handlerMethod 也是我们常写的controller中的mapping
 		initHandlerMappings(context);
+		// 初始化适配器 负责执行handlerMethod和interceptor
 		initHandlerAdapters(context);
+		// 初始化 异常处理
 		initHandlerExceptionResolvers(context);
+		// 访问的默认页面
 		initRequestToViewNameTranslator(context);
+		// 视图解析器 也就是由modelAndView定位到具体的jsp文件
 		initViewResolvers(context);
 		initFlashMapManager(context);
 	}
