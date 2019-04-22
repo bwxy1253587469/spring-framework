@@ -131,6 +131,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * in the form of a BeanDefinitionRegistry
 	 */
 	public XmlBeanDefinitionReader(BeanDefinitionRegistry registry) {
+		// beanFactory 实际是在reader中回调Beanfactory的方法实现将bean注册
 		super(registry);
 	}
 

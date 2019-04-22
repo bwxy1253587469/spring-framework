@@ -119,6 +119,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// the new (child) delegate with a reference to the parent for fallback purposes,
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
+		// 委托设计模式 将真正的解析操作交给delegate（委托） 调用者只需要准备数据
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
@@ -137,9 +138,10 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
+		// 模板方法设计模式
 		// 解析前置处理
 		preProcessXml(root);
-		// 解析
+		// 解析 递归
 		parseBeanDefinitions(root, this.delegate);
 		// 解析后置处理
 		postProcessXml(root);
@@ -195,7 +197,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			processBeanDefinition(ele, delegate);
 		}
 		else if (delegate.nodeNameEquals(ele, NESTED_BEANS_ELEMENT)) {
-			// recurse
+			// recurse 递归解析
 			doRegisterBeanDefinitions(ele);
 		}
 	}
@@ -310,6 +312,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			bdHolder = delegate.decorateBeanDefinitionIfRequired(ele, bdHolder);
 			try {
 				// 进行 BeanDefinition 的注册
+				// getReaderContext().getRegistry() 返回的就是Beanfactory
 				// Register the final decorated instance.
 				BeanDefinitionReaderUtils.registerBeanDefinition(bdHolder, getReaderContext().getRegistry());
 			}
