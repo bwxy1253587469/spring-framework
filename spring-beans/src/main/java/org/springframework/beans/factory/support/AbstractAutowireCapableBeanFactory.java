@@ -475,6 +475,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			// 给 BeanPostProcessors 一个机会用来返回一个代理类而不是真正的类实例
+			// 在这一步中 有可能创建的bean 就是一个代理对象
+			// AOP功能就是基于这里判断的
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -554,6 +556,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// 即使由BeanFactoryAware等生命周期接口触发。
 		// Eagerly cache singletons to be able to resolve circular references
 		// even when triggered by lifecycle interfaces like BeanFactoryAware.
+		// 是否需要提前曝光：单例*运行循环依赖&当前bean正在创建中
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -561,11 +564,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-			// 提前将创建的 bean 实例加入到 singletonFactories 中
-			// 这里是为了后期避免循环依赖
+			// 提前将创建的 bean的ObjectFactory加入到工厂缓存中
+			// 创建过程中 其他线程再次获取该Bean 就可以直接调用ObjectFactory#getObject方法获取bean
+			// 关联功能在这里AbstractBeanFactory的doGetBean()中调用org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(java.lang.String)
+			// 这里是为了后期解决循环依赖
 			addSingletonFactory(beanName, new ObjectFactory<Object>() {
 				@Override
 				public Object getObject() throws BeansException {
+					// AOP的将advice动态织入bean中
 					return getEarlyBeanReference(beanName, mbd, bean);
 				}
 			});
@@ -595,6 +601,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 		}
 
+		// 检测到了循环依赖
 		if (earlySingletonExposure) {
 			Object earlySingletonReference = getSingleton(beanName, false);
 			if (earlySingletonReference != null) {
@@ -622,7 +629,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 		}
 
-		// 将bean注册为一次性
+		// 如果配置了destroy-method 这里需要注册 以便在销毁时调用
 		// Register bean as disposable.
 		try {
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
@@ -1050,6 +1057,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
 						// 后置处理
+						// 如果bean不为空 就会直接返回了
+						// 所以只能在这里调用后置处理
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}
 				}

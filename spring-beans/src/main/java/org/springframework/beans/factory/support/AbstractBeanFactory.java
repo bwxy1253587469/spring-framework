@@ -241,9 +241,17 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 		// Eagerly check singleton cache for manually registered singletons.
 		// 从缓存中获取单列模式的bean
+		// 检查缓存中或者实例工厂中是否有对应的实例
+		// 创建单列bean的时候会存在依赖注入的情况
+		// 为了解决循环依赖，spring创建bean的原则是不等bean创建完成就会将bean的ObjectFactory提早曝光
+		// 也就是将ObjectFactory加入缓存中。
+		// 实现在真正创建bean的方法中 org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean
+		// 调用这个方法 org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.addSingletonFactory
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isDebugEnabled()) {
+				// 与这个org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.beforeSingletonCreation 方法关联
+				// 如果当前bean正在创建中 就要报错
 				if (isSingletonCurrentlyInCreation(beanName)) {
 					logger.debug("Returning eagerly cached instance of singleton bean '" + beanName +
 							"' that is not fully initialized yet - a consequence of a circular reference");
@@ -260,12 +268,15 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			// Fail if we're already creating this bean instance:
 			// We're assumably within a circular reference.
 			// 只支持单列模式的循环依赖  原型模式的循环依赖就报错
+			// 假设当前情况bean有循环依赖
+			// 也就是不允许原型模式下，bean在创建的过程中 又去创建这个bean
 			if (isPrototypeCurrentlyInCreation(beanName)) {
 				throw new BeanCurrentlyInCreationException(beanName);
 			}
 
 			// 校验是否在父容器中加载
 			// Check if bean definition exists in this factory.
+			// 当前容器没有定义该bean,则从父容器加载
 			BeanFactory parentBeanFactory = getParentBeanFactory();
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
@@ -274,6 +285,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// 通过明确的参数委托给父容器
 					// 意思是通过参数从父容器中获取bean
 					// Delegation to parent with explicit args.
+					// 这个地方类似递归调用 区别只是BeanFactory的对象不同
 					return (T) parentBeanFactory.getBean(nameToLookup, args);
 				}
 				else {
@@ -284,6 +296,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 			}
 
+			// 如果不是仅仅进行类型检查，则标记该bean已经被创建
 			if (!typeCheckOnly) {
 				markBeanAsCreated(beanName);
 			}
@@ -293,7 +306,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 				checkMergedBeanDefinition(mbd, beanName, args);
 
-				// 处理依赖的bean
+				// 递归处理依赖的bean
 				// Guarantee initialization of beans that the current bean depends on.
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
@@ -306,6 +319,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						// 将依赖的bean信息放到一个map中缓存
 						registerDependentBean(dep, beanName);
 						try {
+							// 实例化依赖的bean
 							getBean(dep);
 						}
 						catch (NoSuchBeanDefinitionException ex) {
