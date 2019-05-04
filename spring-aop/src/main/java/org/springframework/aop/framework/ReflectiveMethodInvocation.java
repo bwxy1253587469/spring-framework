@@ -16,18 +16,17 @@
 
 package org.springframework.aop.framework;
 
+import org.aopalliance.intercept.MethodInterceptor;
+import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.aop.ProxyMethodInvocation;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.core.BridgeMethodResolver;
+
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.aopalliance.intercept.MethodInterceptor;
-import org.aopalliance.intercept.MethodInvocation;
-
-import org.springframework.aop.ProxyMethodInvocation;
-import org.springframework.aop.support.AopUtils;
-import org.springframework.core.BridgeMethodResolver;
 
 /**
  * Spring's implementation of the AOP Alliance
@@ -153,6 +152,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	@Override
 	public Object proceed() throws Throwable {
 		//	We start with an index of -1 and increment early.
+		// 执行目标方法
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
 			return invokeJoinpoint();
 		}
@@ -164,10 +164,16 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 			// been evaluated and found to match.
 			InterceptorAndDynamicMethodMatcher dm =
 					(InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;
+			// 执行通知器中的拦截器
+			// 这个地方是调用链的调用 类似于递归
+			// 假如调用链有A和B，先调用A的invoke方法，传入this,执行A的invoke方法的前置方法，在执行this.proceed()方法，也就是本方法。
+			// 本方法会调用B方法的invoke方法，B的invoke方法又会调用this.proceed()方法，currentInterceptorIndex==0，执行目标方法。
+			// 这就是所谓的前置，后置，环绕通知的执行
 			if (dm.methodMatcher.matches(this.method, this.targetClass, this.arguments)) {
 				return dm.interceptor.invoke(this);
 			}
 			else {
+				// 递归调用
 				// Dynamic matching failed.
 				// Skip this interceptor and invoke the next in the chain.
 				return proceed();
