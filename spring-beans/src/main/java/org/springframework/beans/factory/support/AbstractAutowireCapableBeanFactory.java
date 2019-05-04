@@ -417,6 +417,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throws BeansException {
 
 		Object result = existingBean;
+		// org.springframework.aop.aspectj.annotation.AnnotationAwareAspectJAutoProxyCreator的postProcessAfterInitialization
+		// 有createProxy方法
+		// 将普通的bean对象包装成proxy代理对象
 		for (BeanPostProcessor processor : getBeanPostProcessors()) {
 			result = processor.postProcessAfterInitialization(result, beanName);
 			if (result == null) {
