@@ -76,9 +76,14 @@ public class AnnotationScopeMetadataResolver implements ScopeMetadataResolver {
 
 	@Override
 	public ScopeMetadata resolveScopeMetadata(BeanDefinition definition) {
+		// 1. 实例例化ScopeMetadata.其默认scopeName为singleton,scopedProxyMode为NO.
 		ScopeMetadata metadata = new ScopeMetadata();
+		// 2. 如果BeanDefinition是AnnotatedBeanDefinition实例的话,调用AnnotationConfigUtils#attributesFor获得
+		// AnnotationAttributes.如果AnnotationAttributes不为null的话,就为metadata设置ScopeName,设置
+		// ScopedProxyMode.此处返回的null.
 		if (definition instanceof AnnotatedBeanDefinition) {
 			AnnotatedBeanDefinition annDef = (AnnotatedBeanDefinition) definition;
+			// 解析scope注解的属性
 			AnnotationAttributes attributes = AnnotationConfigUtils.attributesFor(
 					annDef.getMetadata(), this.scopeAnnotationType);
 			if (attributes != null) {
@@ -90,6 +95,7 @@ public class AnnotationScopeMetadataResolver implements ScopeMetadataResolver {
 				metadata.setScopedProxyMode(proxyMode);
 			}
 		}
+		// 3. 如果不不是的话,就返回ScopeMetadata.
 		return metadata;
 	}
 

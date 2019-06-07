@@ -144,11 +144,15 @@ public class AnnotationConfigUtils {
 	public static Set<BeanDefinitionHolder> registerAnnotationConfigProcessors(
 			BeanDefinitionRegistry registry, Object source) {
 
+		// 1. 获取defaultListableBeanFactory
 		DefaultListableBeanFactory beanFactory = unwrapDefaultListableBeanFactory(registry);
 		if (beanFactory != null) {
+			// 2. 强行改变DependencyComparator
+			// AnnotationAwareOrderComparator是OrderComparator的子类，用来支持Spring的Ordered类、@Order注解和@Priority注解。
 			if (!(beanFactory.getDependencyComparator() instanceof AnnotationAwareOrderComparator)) {
 				beanFactory.setDependencyComparator(AnnotationAwareOrderComparator.INSTANCE);
 			}
+			// 3. 强行改变AutowireCandidateResolver Autowire注解的候选解析器
 			if (!(beanFactory.getAutowireCandidateResolver() instanceof ContextAnnotationAutowireCandidateResolver)) {
 				beanFactory.setAutowireCandidateResolver(new ContextAnnotationAutowireCandidateResolver());
 			}
@@ -156,34 +160,49 @@ public class AnnotationConfigUtils {
 
 		Set<BeanDefinitionHolder> beanDefs = new LinkedHashSet<BeanDefinitionHolder>(8);
 
+		// 4. 如果不包含org.springframework.context.annotation.internalConfigurationAnnotationProcessor 的bean的定义.就注册一个bean class为ConfigurationClassPostProcessor
 		if (!registry.containsBeanDefinition(CONFIGURATION_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+			// 加载和解析@configuration注解
 			RootBeanDefinition def = new RootBeanDefinition(ConfigurationClassPostProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, CONFIGURATION_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
+		// 5. 如果不包含org.springframework.context.annotation.internalAutowiredAnnotationProcessor 的 bean， 就注册一个 bean class 为
+		// AutowiredAnnotationBeanPostProcessor
 		if (!registry.containsBeanDefinition(AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+			// @autowired注解的bean的处理
 			RootBeanDefinition def = new RootBeanDefinition(AutowiredAnnotationBeanPostProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
+		// 6. 如果不不包含org.springframework.context.annotation.internalRequiredAnnotationProcessor的 bean， 就注册⼀一个 bean class 为
+		// RequiredAnnotationBeanPostProcessor
 		if (!registry.containsBeanDefinition(REQUIRED_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+			// @Required注解修饰的bean处理器
 			RootBeanDefinition def = new RootBeanDefinition(RequiredAnnotationBeanPostProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, REQUIRED_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
+		// 7. 如果当前类路路径存在javax.annotation.Resource.并且registry中不不包含org.springframework.context.annotation.internalCommonAnnotationProcessor的定义,那么就注
+		// 册⼀一个 bean class 为 CommonAnnotationBeanPostProcessor 的bean. ⼀一般都会进⾏行行注册的.
 		// Check for JSR-250 support, and if present add the CommonAnnotationBeanPostProcessor.
 		if (jsr250Present && !registry.containsBeanDefinition(COMMON_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+			// javax.annotation.Resource等注解的支持（javax.annotation路径下的）
 			RootBeanDefinition def = new RootBeanDefinition(CommonAnnotationBeanPostProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, COMMON_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
+		// 8. 如果当前类路路径存在javax.persistence.EntityManagerFactory和 org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor 并且registry中不不包
+		// 含org.springframework.context.annotation.internalPersistenceAnnotationProcessor的 定义,那么就注册⼀一个 class 为
+		// org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor 的bean. ⼀一般都会进⾏行行注册的.
 		// Check for JPA support, and if present add the PersistenceAnnotationBeanPostProcessor.
 		if (jpaPresent && !registry.containsBeanDefinition(PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition();
+			// 用于处理注解@PersistenceUnit和@PersistenceContext的BeanPostProcessor
 			try {
 				def.setBeanClass(ClassUtils.forName(PERSISTENCE_ANNOTATION_PROCESSOR_CLASS_NAME,
 						AnnotationConfigUtils.class.getClassLoader()));
@@ -196,13 +215,17 @@ public class AnnotationConfigUtils {
 			beanDefs.add(registerPostProcessor(registry, def, PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
+		// 9. 如果registry 不不包含org.springframework.context.event.internalEventListenerProcessor的 定义.就注册⼀一个bean class 为 EventListenerMethodProcessor 的定义
 		if (!registry.containsBeanDefinition(EVENT_LISTENER_PROCESSOR_BEAN_NAME)) {
+			// EventListener注解的处理
 			RootBeanDefinition def = new RootBeanDefinition(EventListenerMethodProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, EVENT_LISTENER_PROCESSOR_BEAN_NAME));
 		}
 
+		// 10. 如果registry 不不包含org.springframework.context.event.internalEventListenerFactory的 定义. 就注册⼀一个 class 为 DefaultEventListenerFactory 的定义
 		if (!registry.containsBeanDefinition(EVENT_LISTENER_FACTORY_BEAN_NAME)) {
+			// EventListener工厂
 			RootBeanDefinition def = new RootBeanDefinition(DefaultEventListenerFactory.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, EVENT_LISTENER_FACTORY_BEAN_NAME));
@@ -236,6 +259,7 @@ public class AnnotationConfigUtils {
 	}
 
 	static void processCommonDefinitionAnnotations(AnnotatedBeanDefinition abd, AnnotatedTypeMetadata metadata) {
+		// 懒加载
 		if (metadata.isAnnotated(Lazy.class.getName())) {
 			abd.setLazyInit(attributesFor(metadata, Lazy.class).getBoolean("value"));
 		}
@@ -243,9 +267,12 @@ public class AnnotationConfigUtils {
 			abd.setLazyInit(attributesFor(abd.getMetadata(), Lazy.class).getBoolean("value"));
 		}
 
+		// 告诉spring 有相同实现类的bean 优先使用
 		if (metadata.isAnnotated(Primary.class.getName())) {
 			abd.setPrimary(true);
 		}
+
+		// 控制bean的加载顺序
 		if (metadata.isAnnotated(DependsOn.class.getName())) {
 			abd.setDependsOn(attributesFor(metadata, DependsOn.class).getStringArray("value"));
 		}
