@@ -88,6 +88,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 
 	private ResourcePatternResolver resourcePatternResolver;
 
+	// MetadataReader实例的工厂接口，允许缓存每个原始资源的元数据集。
 	private MetadataReaderFactory metadataReaderFactory;
 
 

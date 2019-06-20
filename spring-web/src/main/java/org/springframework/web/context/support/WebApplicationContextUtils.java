@@ -289,11 +289,15 @@ public abstract class WebApplicationContextUtils {
 			MutablePropertySources propertySources, ServletContext servletContext, ServletConfig servletConfig) {
 
 		Assert.notNull(propertySources, "'propertySources' must not be null");
+		// 1. 判断如果servletContext 不不等null并且propertySources包含servletContextInitParams的定义并且是StubPropertySource的⼦子类的话,就替换为
+		// ServletContextPropertySource.
 		if (servletContext != null && propertySources.contains(StandardServletEnvironment.SERVLET_CONTEXT_PROPERTY_SOURCE_NAME) &&
 				propertySources.get(StandardServletEnvironment.SERVLET_CONTEXT_PROPERTY_SOURCE_NAME) instanceof StubPropertySource) {
 			propertySources.replace(StandardServletEnvironment.SERVLET_CONTEXT_PROPERTY_SOURCE_NAME,
 					new ServletContextPropertySource(StandardServletEnvironment.SERVLET_CONTEXT_PROPERTY_SOURCE_NAME, servletContext));
 		}
+		// 2. 判断如果servletConfig 不不等于null 并且 propertySources 包含servletConfigInitParams的 定义并且是StubPropertySource的⼦子类的话,就替换为
+		// ServletConfigPropertySource.
 		if (servletConfig != null && propertySources.contains(StandardServletEnvironment.SERVLET_CONFIG_PROPERTY_SOURCE_NAME) &&
 				propertySources.get(StandardServletEnvironment.SERVLET_CONFIG_PROPERTY_SOURCE_NAME) instanceof StubPropertySource) {
 			propertySources.replace(StandardServletEnvironment.SERVLET_CONFIG_PROPERTY_SOURCE_NAME,

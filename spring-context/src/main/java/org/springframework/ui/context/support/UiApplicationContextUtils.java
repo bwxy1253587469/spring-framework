@@ -54,9 +54,13 @@ public abstract class UiApplicationContextUtils {
 	 * @see #THEME_SOURCE_BEAN_NAME
 	 */
 	public static ThemeSource initThemeSource(ApplicationContext context) {
+		// 1. 如果context中有themeSource的定义
 		if (context.containsLocalBean(THEME_SOURCE_BEAN_NAME)) {
+			// 1.1. 从context 获取,id 为themeSource type为ThemeSource 的 bean
 			ThemeSource themeSource = context.getBean(THEME_SOURCE_BEAN_NAME, ThemeSource.class);
 			// Make ThemeSource aware of parent ThemeSource.
+			// 2.2. 如果⽗父容器器实现了了ThemeSource,并且ThemeSource 是HierarchicalThemeSource 的⼦子类,并且HierarchicalThemeSource 的
+			// ParentThemeSource 没有进⾏行行设置.则将⽗父容器器赋值给HierarchicalThemeSource的ParentThemeSource
 			if (context.getParent() instanceof ThemeSource && themeSource instanceof HierarchicalThemeSource) {
 				HierarchicalThemeSource hts = (HierarchicalThemeSource) themeSource;
 				if (hts.getParentThemeSource() == null) {
@@ -70,9 +74,11 @@ public abstract class UiApplicationContextUtils {
 			}
 			return themeSource;
 		}
+		// 2. 如果context中没有themeSource的定义
 		else {
 			// Use default ThemeSource to be able to accept getTheme calls, either
 			// delegating to parent context's default or to local ResourceBundleThemeSource.
+			// 2.1. 如果⽗父容器器为ThemeSource的⼦子类,则实例例化DelegatingThemeSource,并将⽗父容器器赋值给DelegatingThemeSource的ParentThemeSource
 			HierarchicalThemeSource themeSource = null;
 			if (context.getParent() instanceof ThemeSource) {
 				themeSource = new DelegatingThemeSource();

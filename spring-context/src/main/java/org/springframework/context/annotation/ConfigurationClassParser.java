@@ -160,8 +160,11 @@ class ConfigurationClassParser {
 
 
 	public void parse(Set<BeanDefinitionHolder> configCandidates) {
+		// 1.实例化deferredImportSelectors
 		this.deferredImportSelectors = new LinkedList<DeferredImportSelectorHolder>();
 
+		// 2.遍历configCandidates，根据BeanDefinition不同类型 做不同的处理
+		// 一般都会调用ConfigurationClassParser#parse 进⾏行行解析
 		for (BeanDefinitionHolder holder : configCandidates) {
 			BeanDefinition bd = holder.getBeanDefinition();
 			try {
@@ -184,6 +187,7 @@ class ConfigurationClassParser {
 			}
 		}
 
+		// 3. 处理DeferredImportSelectors
 		processDeferredImportSelectors();
 	}
 
@@ -216,10 +220,12 @@ class ConfigurationClassParser {
 
 
 	protected void processConfigurationClass(ConfigurationClass configClass) throws IOException {
+		// 1. 判断是否应该被跳过
 		if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURATION)) {
 			return;
 		}
 
+		// 2. 处理Imported 的情况
 		ConfigurationClass existingClass = this.configurationClasses.get(configClass);
 		if (existingClass != null) {
 			if (configClass.isImported()) {
@@ -244,10 +250,12 @@ class ConfigurationClassParser {
 		// Recursively process the configuration class and its superclass hierarchy.
 		SourceClass sourceClass = asSourceClass(configClass);
 		do {
+			// 3. 递归调用进行解析 返回sourceClass的super class
 			sourceClass = doProcessConfigurationClass(configClass, sourceClass);
 		}
 		while (sourceClass != null);
 
+		// 4. 添加到configurationClasses中
 		this.configurationClasses.put(configClass, configClass);
 	}
 
@@ -262,9 +270,11 @@ class ConfigurationClassParser {
 	protected final SourceClass doProcessConfigurationClass(ConfigurationClass configClass, SourceClass sourceClass)
 			throws IOException {
 
+		// 1. 处理内部类
 		// Recursively process any member (nested) classes first
 		processMemberClasses(configClass, sourceClass);
 
+		// 2. 处理@PropertySource properties配置文件
 		// Process any @PropertySource annotations
 		for (AnnotationAttributes propertySource : AnnotationConfigUtils.attributesForRepeatable(
 				sourceClass.getMetadata(), PropertySources.class,
@@ -278,21 +288,25 @@ class ConfigurationClassParser {
 			}
 		}
 
+		// 3. 处理ComponentScan
 		// Process any @ComponentScan annotations
 		Set<AnnotationAttributes> componentScans = AnnotationConfigUtils.attributesForRepeatable(
 				sourceClass.getMetadata(), ComponentScans.class, ComponentScan.class);
 		if (!componentScans.isEmpty() &&
 				!this.conditionEvaluator.shouldSkip(sourceClass.getMetadata(), ConfigurationPhase.REGISTER_BEAN)) {
 			for (AnnotationAttributes componentScan : componentScans) {
+				// 3.1 扫描
 				// The config class is annotated with @ComponentScan -> perform the scan immediately
 				Set<BeanDefinitionHolder> scannedBeanDefinitions =
 						this.componentScanParser.parse(componentScan, sourceClass.getMetadata().getClassName());
 				// Check the set of scanned definitions for any further config classes and parse recursively if needed
+				// 3.2 依次调用解析
 				for (BeanDefinitionHolder holder : scannedBeanDefinitions) {
 					BeanDefinition bdCand = holder.getBeanDefinition().getOriginatingBeanDefinition();
 					if (bdCand == null) {
 						bdCand = holder.getBeanDefinition();
 					}
+					// 递归调用 bean定义有configuration等注解
 					if (ConfigurationClassUtils.checkConfigurationClassCandidate(bdCand, this.metadataReaderFactory)) {
 						parse(bdCand.getBeanClassName(), holder.getBeanName());
 					}
@@ -300,30 +314,36 @@ class ConfigurationClassParser {
 			}
 		}
 
+		// 4. 处理import注解
 		// Process any @Import annotations
 		processImports(configClass, sourceClass, getImports(sourceClass), true);
 
+		// 5. 处理ImportResource注解
 		// Process any @ImportResource annotations
 		if (sourceClass.getMetadata().isAnnotated(ImportResource.class.getName())) {
 			AnnotationAttributes importResource =
 					AnnotationConfigUtils.attributesFor(sourceClass.getMetadata(), ImportResource.class);
 			String[] resources = importResource.getStringArray("locations");
 			Class<? extends BeanDefinitionReader> readerClass = importResource.getClass("reader");
+			// 遍历配置的locations,加⼊入到configClass 中的ImportedResource
 			for (String resource : resources) {
 				String resolvedResource = this.environment.resolveRequiredPlaceholders(resource);
 				configClass.addImportedResource(resolvedResource, readerClass);
 			}
 		}
 
+		// 6. 遍历@Bean注释的方法,添加到configClass
 		// Process individual @Bean methods
 		Set<MethodMetadata> beanMethods = retrieveBeanMethodMetadata(sourceClass);
 		for (MethodMetadata methodMetadata : beanMethods) {
 			configClass.addBeanMethod(new BeanMethod(methodMetadata, configClass));
 		}
 
+		// 7. jdk8 新增的接口中写默认方法
 		// Process default methods on interfaces
 		processInterfaces(configClass, sourceClass);
 
+		// 8. 如果有父类的话,则返回⽗父类进⾏行行进⼀一步的解析
 		// Process superclass, if any
 		if (sourceClass.getMetadata().hasSuperClass()) {
 			String superclass = sourceClass.getMetadata().getSuperClassName();
@@ -342,12 +362,17 @@ class ConfigurationClassParser {
 	 * Register member (nested) classes that happen to be configuration classes themselves.
 	 */
 	private void processMemberClasses(ConfigurationClass configClass, SourceClass sourceClass) throws IOException {
+		// 1. 遍历class中的内部类
 		for (SourceClass memberClass : sourceClass.getMemberClasses()) {
+			// 2. 如果该内部类是一个配置类（有configuration/component等注解）,并且该内部类的类名和configClass的类名不相同
 			if (ConfigurationClassUtils.isConfigurationCandidate(memberClass.getMetadata()) &&
 					!memberClass.getMetadata().getClassName().equals(configClass.getMetadata().getClassName())) {
 				if (this.importStack.contains(configClass)) {
+					// 2.1 如果importStack 包含该configClass的化,则意味发⽣生了了循环依赖,则
+					// 会抛出BeanDefinitionParsingException 异常
 					this.problemReporter.error(new CircularImportProblem(configClass, this.importStack));
 				}
+				// 2.2 否则加入到importStack,调用processConfigurationClass 进⾏解析
 				else {
 					this.importStack.push(configClass);
 					try {
@@ -422,6 +447,7 @@ class ConfigurationClassParser {
 	 * @throws IOException if loading a property source failed
 	 */
 	private void processPropertySource(AnnotationAttributes propertySource) throws IOException {
+		// 1. 解析name、encoding值
 		String name = propertySource.getString("name");
 		if (!StringUtils.hasLength(name)) {
 			name = null;
@@ -430,21 +456,29 @@ class ConfigurationClassParser {
 		if (!StringUtils.hasLength(encoding)) {
 			encoding = null;
 		}
+		// 2. 解析value（数组）以及ignoreResourceNotFound值
 		String[] locations = propertySource.getStringArray("value");
 		Assert.isTrue(locations.length > 0, "At least one @PropertySource(value) location is required");
 		boolean ignoreResourceNotFound = propertySource.getBoolean("ignoreResourceNotFound");
 
+		// 3. 解析factory，如果该值没有配置，默认为PropertySourceFactory则直接实例化DefaultPropertySourceFactory类，否则开始实例化自定义的类
 		Class<? extends PropertySourceFactory> factoryClass = propertySource.getClass("factory");
 		PropertySourceFactory factory = (factoryClass == PropertySourceFactory.class ?
 				DEFAULT_PROPERTY_SOURCE_FACTORY : BeanUtils.instantiateClass(factoryClass));
 
 		for (String location : locations) {
 			try {
+				// 4.1 对location进⾏行行SPEL表达式的解析。⽐比如当前的配置环境中有⼀一个属性为app=
+				// shareniu，我们配置的location为${app}最终值为shareniu。通过这⾥里里的处理理逻辑可以知道loc
+				// ation⽀支持多环境的切换以及表达式的配置
 				String resolvedLocation = this.environment.resolveRequiredPlaceholders(location);
+				// 4.2 使⽤用资源加载器器resourceLoader将resolvedLocation抽象为Resource
 				Resource resource = this.resourceLoader.getResource(resolvedLocation);
+				// 4.3 调⽤用addPropertySource属性进⾏行行处理理。将指定的资源处理理之后，添加到当前springboot运⾏行行的环境中
 				addPropertySource(factory.createPropertySource(name, new EncodedResource(resource, encoding)));
 			}
 			catch (IllegalArgumentException ex) {
+				// 5. 如果上述的任意步骤报错，则开始查找ignoreResourceNotFound的值，如果该值为treu，则忽略略异常，否则直接报错
 				// Placeholders not resolvable
 				if (ignoreResourceNotFound) {
 					if (logger.isInfoEnabled()) {
@@ -566,33 +600,42 @@ class ConfigurationClassParser {
 	private void processImports(ConfigurationClass configClass, SourceClass currentSourceClass,
 			Collection<SourceClass> importCandidates, boolean checkForCircularImports) {
 
+		// 1. 如果importCandidates为空,则直接return
 		if (importCandidates.isEmpty()) {
 			return;
 		}
 
+		// 2. 进⾏行行循环依赖的检查
 		if (checkForCircularImports && isChainedImportOnStack(configClass)) {
 			this.problemReporter.error(new CircularImportProblem(configClass, this.importStack));
 		}
 		else {
 			this.importStack.push(configClass);
 			try {
+				// 3. 如果不不存在循环依赖,则依次遍历处理理之
 				for (SourceClass candidate : importCandidates) {
+					// 3.1 如果是ImportSelector的⼦子类
 					if (candidate.isAssignable(ImportSelector.class)) {
 						// Candidate class is an ImportSelector -> delegate to it to determine imports
 						Class<?> candidateClass = candidate.loadClass();
+						// 则实例化后,调用ParserStrategyUtils#invokeAwareMethods
 						ImportSelector selector = BeanUtils.instantiateClass(candidateClass, ImportSelector.class);
+						// 手动实现aware接口的功能
 						ParserStrategyUtils.invokeAwareMethods(
 								selector, this.environment, this.resourceLoader, this.registry);
+						// 3.2 如果当前类是DeferredImportSelector 的实现,则加⼊到deferredImportSelectors
 						if (this.deferredImportSelectors != null && selector instanceof DeferredImportSelector) {
 							this.deferredImportSelectors.add(
 									new DeferredImportSelectorHolder(configClass, (DeferredImportSelector) selector));
 						}
 						else {
+							// 3.3 如果不是,则调⽤用processImports 进⾏行行处理理.
 							String[] importClassNames = selector.selectImports(currentSourceClass.getMetadata());
 							Collection<SourceClass> importSourceClasses = asSourceClasses(importClassNames);
 							processImports(configClass, currentSourceClass, importSourceClasses, false);
 						}
 					}
+					// 如果是ImportBeanDefinitionRegistrar的子类,则实例化后,调用ParserStrategyUtils#invokeAwareMethods,添加到configClass中
 					else if (candidate.isAssignable(ImportBeanDefinitionRegistrar.class)) {
 						// Candidate class is an ImportBeanDefinitionRegistrar ->
 						// delegate to it to register additional bean definitions
@@ -603,6 +646,7 @@ class ConfigurationClassParser {
 								registrar, this.environment, this.resourceLoader, this.registry);
 						configClass.addImportBeanDefinitionRegistrar(registrar, currentSourceClass.getMetadata());
 					}
+					// 3. 否则，加⼊入到importStack后调⽤用processConfigurationClass进⾏行行处理理.
 					else {
 						// Candidate class not an ImportSelector or ImportBeanDefinitionRegistrar ->
 						// process it as an @Configuration class
