@@ -751,8 +751,11 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	 * @see #applyPropertyValues
 	 */
 	protected void doBind(MutablePropertyValues mpvs) {
+		// 1. 检查是否存在不允许的字段存在,如果存在则删除
 		checkAllowedFields(mpvs);
+		// 2.检查是否存在Required 字段缺失的情况
 		checkRequiredFields(mpvs);
+		// 3. 进行注入
 		applyPropertyValues(mpvs);
 	}
 
@@ -856,6 +859,7 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	 */
 	protected void applyPropertyValues(MutablePropertyValues mpvs) {
 		try {
+			// 1. 进行注入
 			// Bind request parameters onto target object.
 			getPropertyAccessor().setPropertyValues(mpvs, isIgnoreUnknownFields(), isIgnoreInvalidFields());
 		}
