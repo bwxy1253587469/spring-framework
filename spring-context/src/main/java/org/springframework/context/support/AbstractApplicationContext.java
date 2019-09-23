@@ -516,6 +516,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 			// Tell the subclass to refresh the internal bean factory.
 			// 2. 初始化 BeanFactory
+			// GenericApplicationContext.GenericApplicationContext()
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
@@ -534,11 +535,13 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 激活各种BeanFactory处理器 beanFactory中注册部分bean（configuration import等注解的处理bean）定义就是通过这里的BeanFactoryPostProcessor实现类（spring boot 是org.springframework.context.annotation.ConfigurationClassPostProcessor）做的
 				// 调用BeanFactoryPostProcessor.postProcessBeanFactory
 				// 5. 激活各种BeanFactory处理器 实现BeanFactoryPostProcessor接口的类
+				// 有些BeanFactoryPostProcessor的只有定义(例如自定义实现了接口的类)  会在这创建bean
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
 				// 注册拦截Bean创建的Bean处理器，即注册 BeanPostProcessor
 				// 6. 注册拦截bean创建的bean处理理器器,这⾥里里只是注册,真正的调⽤用是在getBean的时候 实现BeanPostProcessor接口的类
+				// BeanPostProcessor定义(例如自定义实现了接口的类) 在这创建为bean
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
@@ -615,11 +618,12 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// Initialize any placeholder property sources in the context environment.
 		// 初始化context environment（上下文环境）中的占位符属性来源
+		// org.springframework.web.context.support.GenericWebApplicationContext.initPropertySources
 		initPropertySources();
 
 		// Validate that all properties marked as required are resolvable:
 		// see ConfigurablePropertyResolver#setRequiredProperties
-		// 对属性进行必要的验证
+		// 对属性进行必要的验证 校验必须要的属性是否存在
 		getEnvironment().validateRequiredProperties();
 
 		// Allow for the collection of early ApplicationEvents,

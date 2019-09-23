@@ -75,7 +75,12 @@ public class StandardEnvironment extends AbstractEnvironment {
 	 */
 	@Override
 	protected void customizePropertySources(MutablePropertySources propertySources) {
+		// 获取系统变量配置
+		// 获取系统的相关属性，包括文件编码、操作系统名称、区域、用户名等，此属性一般由jvm自动获取，不能设置。
+		// 具体在idea编辑器启动参数中的vm option中的-D参数会在这里面
 		propertySources.addLast(new MapPropertySource(SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME, getSystemProperties()));
+		// 1.System.getenv() 方法是获取指定的环境变量的值。它有两种方法，一种是接收参数为任意字符串，当存在指定环境变量时即返回环境变量的值，否则返回null。另外一种是不接受参数，那么返回的是所有的环境变量
+		// 具体的指一些程序路径 文件路径等
 		propertySources.addLast(new SystemEnvironmentPropertySource(SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, getSystemEnvironment()));
 	}
 

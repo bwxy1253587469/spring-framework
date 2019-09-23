@@ -513,6 +513,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 
 	@Override
 	public void validateRequiredProperties() throws MissingRequiredPropertiesException {
+		// org.springframework.core.env.AbstractPropertyResolver.validateRequiredProperties
 		this.propertyResolver.validateRequiredProperties();
 	}
 
